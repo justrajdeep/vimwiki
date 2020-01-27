@@ -114,8 +114,7 @@ function! vimwiki#base#resolve_link(link_text, ...)
     let source_file = vimwiki#path#current_wiki_file()
   endif
 
-  let link_text = a:link_text
-
+  let link_text = resolve(expand(a:link_text))
 
   let link_infos = {
         \ 'index': -1,
@@ -140,6 +139,7 @@ function! vimwiki#base#resolve_link(link_text, ...)
     endif
 
     let link_text = matchstr(link_text, '^'.vimwiki#vars#get_global('rxSchemes').':\zs.*\ze')
+    let link_text = resolve(expand(link_text))
   endif
 
   let is_wiki_link = link_infos.scheme =~# '\mwiki\d\+' || link_infos.scheme ==# 'diary'
@@ -163,9 +163,15 @@ function! vimwiki#base#resolve_link(link_text, ...)
   endif
 
   " check if absolute or relative path
+  let is_absolute = 0
   if is_wiki_link && link_text[0] == '/'
     if link_text != '/'
-      let link_text = link_text[1:]
+      if link_text != '//' && link_text[0:1] == '//'
+        let link_text = link_text[2:]
+        let is_absolute = 1
+      else
+        let link_text = link_text[1:]
+      endif
     endif
     let is_relative = 0
   elseif !is_wiki_link && vimwiki#path#is_absolute(link_text)
@@ -184,8 +190,9 @@ function! vimwiki#base#resolve_link(link_text, ...)
       let link_infos.filename = ''
       return link_infos
     endif
-
-    if !is_relative || link_infos.index != source_wiki
+    if is_absolute
+        let root_dir = ''
+    elseif !is_relative || link_infos.index != source_wiki
       let root_dir = vimwiki#vars#get_wikilocal('path', link_infos.index)
     endif
 
@@ -197,7 +204,9 @@ function! vimwiki#base#resolve_link(link_text, ...)
               \ vimwiki#vars#get_wikilocal('ext', link_infos.index)
       endif
     else
-      let link_infos.filename .= vimwiki#vars#get_wikilocal('ext', link_infos.index)
+      if !is_absolute
+        let link_infos.filename .= vimwiki#vars#get_wikilocal('ext', link_infos.index)
+      end
     endif
 
   elseif link_infos.scheme ==# 'diary'
